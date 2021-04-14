@@ -121,27 +121,24 @@ def useImageYolo(path, output_path):
             display_boxes.append(boxes[0][i])
             display_scores.append(scores[0][i])
 
-    wh = np.flip(img.shape[0:2])
+    # draw output
+    wh = np.flip(image.shape[0:2])
     for i in range(len(display_boxes)):
         x1y1 = tuple((np.array(display_boxes[i][0:2]) * wh).astype(np.int32))
         x2y2 = tuple((np.array(display_boxes[i][2:4]) * wh).astype(np.int32))
-        img = cv2.rectangle(img, x1y1, x2y2, (255, 0, 0), 2)
-        img = cv2.putText(img, f'person {display_scores[i]}',
+        image = cv2.rectangle(image, x1y1, x2y2, (255, 0, 0), 2)
+        image = cv2.putText(image, '{} {:.2f}'.format("person", display_scores[i]),
                           x1y1, cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 2)
 
-    cv2.putText(img, 'Status : Detecting ', (40, 40),
-                cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 0, 0), 2)
-    cv2.putText(img, f'Total Persons : {count}', (40, 70),
-                cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 0, 0), 2)
+    cv2.putText(image, 'Status : Detecting ', (40, 40),
+                cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2)
+    cv2.putText(image, f'Total Persons : {count}', (40, 70),
+                cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2)
 
-    print(img[0].shape)
-    img = cv2.cvtColor(img[0], cv2.COLOR_RGB2BGR)
-
-    # cv2.imshow('output', img)
+    # cv2.imshow('output', image)
 
     if output_path is not None:
-
-        cv2.imwrite(output_path, img)
+        cv2.imwrite(output_path, image)
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
