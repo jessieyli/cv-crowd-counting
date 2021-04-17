@@ -4,25 +4,46 @@ import numpy as np
 from yolo3 import YoloV3, load_pretrained_weights, weights_download
 
 # detect people and make box
+yolo = YoloV3()
+load_pretrained_weights(yolo, 'models/yolov3.weights')
 
 
 def detect(frame):
+    image = frame
 
-    # bounding_box_cordinates, weights =  HOGCV.detectMultiScale(frame, winStride = (4, 4), padding = (8, 8), scale = 1.03)
+    img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    img = cv2.resize(img, (320, 320))
+    img = img.astype(np.float32)
+    img = np.expand_dims(img, 0)
+    img = img / 255
 
-    # person = 1
-    # for x,y,w,h in bounding_box_cordinates:
-    #     cv2.rectangle(frame, (x,y), (x+w,y+h), (0,255,0), 2)
-    #     cv2.putText(frame, f'person {person}', (x,y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 1)
-    #     person += 1
+    print("running yolo")
+    boxes, scores, classes, nums = yolo(img)
+    count = 0
+    display_boxes = []
+    display_scores = []
+    for i in range(nums[0]):
+        if int(classes[0][i] == 0):
+            count += 1
+            display_boxes.append(boxes[0][i])
+            display_scores.append(scores[0][i])
 
-    # cv2.putText(frame, 'Status : Detecting ', (40,40), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255,0,0), 2)
-    # cv2.putText(frame, f'Total Persons : {person-1}', (40,70), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255,0,0), 2)
+    # draw output
+    wh = np.flip(image.shape[0:2])
+    for i in range(len(display_boxes)):
+        x1y1 = tuple((np.array(display_boxes[i][0:2]) * wh).astype(np.int32))
+        x2y2 = tuple((np.array(display_boxes[i][2:4]) * wh).astype(np.int32))
+        image = cv2.rectangle(image, x1y1, x2y2, (255, 0, 0), 2)
+        image = cv2.putText(image, '{} {:.2f}'.format("person", display_scores[i]),
+                          x1y1, cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 2)
 
-    # TODO: IMPLEMENT PEOPLE DETECTOR
-    cv2.imshow('output', frame)
+    cv2.putText(image, 'Status : Detecting ', (40, 40),
+                cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2)
+    cv2.putText(image, f'Total Persons : {count}', (40, 70),
+                cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2)
 
-    return frame
+    cv2.imshow('output', image)
+    return image
 
 
 def useCamera(writer):
@@ -162,6 +183,7 @@ if __name__ == "__main__":
             args['output'], cv2.VideoWriter_fourcc(*'MJPG'), 10, (600, 600))
     else:
         writer = None
+
 
     if args['webcam']:
         print('USING WEBCAM')
