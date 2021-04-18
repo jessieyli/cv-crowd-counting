@@ -2,6 +2,7 @@ import argparse
 import cv2
 import numpy as np
 from yolo3 import YoloV3, load_pretrained_weights, weights_download
+import os
 
 # detect people and make box
 yolo = YoloV3()
@@ -17,7 +18,6 @@ def detect(frame):
     img = np.expand_dims(img, 0)
     img = img / 255
 
-    print("running yolo")
     boxes, scores, classes, nums = yolo(img)
     count = 0
     display_boxes = []
@@ -42,7 +42,7 @@ def detect(frame):
     cv2.putText(image, f'Total Persons : {count}', (40, 70),
                 cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2)
 
-    cv2.imshow('output', image)
+    # cv2.imshow('output', image)
     return image
 
 
@@ -164,6 +164,29 @@ def useImageYolo(path, output_path):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+def imagesIntoVideo(image_folder, video_name):
+    images = [img for img in os.listdir(image_folder)
+            if img.endswith(".jpg") or
+                img.endswith(".jpeg") or
+                img.endswith("png")]
+
+    # setting frame width, height
+    frame = cv2.imread(os.path.join(image_folder, images[0]))
+    height, width, layers = frame.shape
+    video = cv2.VideoWriter(video_name, 0, 30, (width, height))
+
+    # write images into video
+    for image in images: 
+        # process images
+        raw = cv2.imread(os.path.join(image_folder, image))
+        processed = detect(raw)
+        video.write(processed)
+
+    # cleanup
+    cv2.destroyAllWindows()
+    video.release()
+
+
 
 if __name__ == "__main__":
     arg_parse = argparse.ArgumentParser()
@@ -175,6 +198,8 @@ if __name__ == "__main__":
                            help="Set true to use webcam")
     arg_parse.add_argument("-o", "--output", type=str, help="output path")
     arg_parse.add_argument("-y", "--yolo", action="store_true", help="use YOLOv3")
+    arg_parse.add_argument("-if", "--imagefolder", default=None,
+                           help="image folder to video")
     args = vars(arg_parse.parse_args())
 
     # TODO: WRITER DOES NOT WORK FOR VIDS
@@ -197,3 +222,6 @@ if __name__ == "__main__":
     elif args['image'] is not None:
         print('USING IMAGE')
         useImage(args['image'], args['output'])
+    elif args['imagefolder'] is not None:
+        imagesIntoVideo(args['imagefolder'], args['output'])
+
