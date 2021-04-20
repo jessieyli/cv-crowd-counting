@@ -5,6 +5,7 @@ from yolo3 import YoloV3, weights_download
 from tiny_yolo import YoloV3Tiny, tiny_weights_download
 from helpers import load_pretrained_weights
 import os
+from skimage.feature import hog
 
 # detect people and make box
 yolo = YoloV3()
@@ -48,7 +49,7 @@ def detect(frame):
     return image
 
 # returns image, hog descriptors of people
-def detectTrack(frame):
+def detectTrack(frame, prevFeatures):
     image = frame.copy()
 
     img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -69,7 +70,7 @@ def detectTrack(frame):
     
     # extract features
     wh = np.flip(image.shape[0:2])
-    features = np.zeros((len(display_boxes), 4))
+    features = np.zeros((len(display_boxes), 3969))
 
     # draw output
     for i in range(len(display_boxes)):
@@ -86,8 +87,10 @@ def detectTrack(frame):
 
         # draw feature
         image = cv2.rectangle(image, (fx1, fy1), (fx2, fy2), (0, 0, 255), 1)
+
         # calculate and save feature
-        
+        feature = hog(image[fy1:fy2, fx1:fx2], feature_vector=True)
+        features[i] = feature
 
         # draw bounding box
         image = cv2.rectangle(image, (x1, y1), (x2, y2), (255, 0, 0), 2)
@@ -100,7 +103,7 @@ def detectTrack(frame):
                 cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2)
 
     # cv2.imshow('output', image)
-    return image
+    return image, features
 
 
 
@@ -239,10 +242,12 @@ def imagesIntoVideoTrack(image_folder, video_name):
     video = cv2.VideoWriter(video_name, 0, 30, (width, height))
 
     # write images into video
+    prevFeatures = None
     for image in images: 
         # process images
         raw = cv2.imread(os.path.join(image_folder, image))
-        processed = detectTrack(raw)
+        processed, newFeatures = detectTrack(raw, prevFeatures)
+        prevFeatures
         video.write(processed)
 
     # cleanup
