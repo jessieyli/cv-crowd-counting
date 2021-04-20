@@ -8,6 +8,7 @@ import os
 from skimage.feature import hog
 from match import match_features
 import random
+import time
 
 # constants
 CONFIDENCE_THRESHOLD = 1.1
@@ -65,7 +66,7 @@ def detect(frame):
 # frame - image frame
 # prevFeatures - array of N descriptors (1 per bounding box)
 # prevLabels - array of N labels corresponding to descriptors
-def detectTrack(frame, prevFeatures, prevLabels):
+def detectAndTrack(frame, prevFeatures, prevLabels):
     global people_counter
     image = frame.copy()
 
@@ -109,6 +110,7 @@ def detectTrack(frame, prevFeatures, prevLabels):
             image = cv2.rectangle(image, (fx1, fy1), (fx2, fy2), (0, 0, 255), 1)
             hog_descriptor = hog(image[fy1:fy2, fx1:fx2], feature_vector=True)
             features.append(hog_descriptor)
+    features = np.array(features)
 
     # Match features to determine new labels
     labels = []
@@ -135,8 +137,8 @@ def detectTrack(frame, prevFeatures, prevLabels):
 
             labels.append(label)
             image = cv2.rectangle(image, (x1, y1), (x2, y2), people_colors[label], 2)
-            image = cv2.putText(image, '{} {:.2f}'.format("person", label),
-                (x1, y1), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+            image = cv2.putText(image, f'person {label}', (x1, y1),
+                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255), 1)
 
     else: # prevFeatures is None
         for j in range(total_persons):
@@ -149,8 +151,8 @@ def detectTrack(frame, prevFeatures, prevLabels):
 
             # draw colored bounding box with label of person
             image = cv2.rectangle(image, (x1, y1), (x2, y2), people_colors[people_counter], 2)
-            image = cv2.putText(image, '{} {:.2f}'.format("person", people_counter),
-                          (x1, y1), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+            image = cv2.putText(image, f'person {people_counter}', (x1, y1),
+                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255), 1)
             people_counter += 1
 
     cv2.putText(image, f'Total Persons : {total_persons}', (40, 40),
@@ -296,13 +298,26 @@ def imagesIntoVideoTrack(image_folder, video_name):
     # write images into video
     prevFeatures = None
     prevLabels = None
+    total_duration = 0
+    num_images = 0
     for image in images: 
         # process images
         raw = cv2.imread(os.path.join(image_folder, image))
-        processed, newFeatures, newLabels = detectTrack(raw, prevFeatures, prevLabels)
+
+        start = time.time()
+        processed, newFeatures, newLabels = detectAndTrack(raw, prevFeatures, prevLabels)
+        end = time.time()
+
+        duration = end - start
+        total_duration += duration
+        num_images += 1
+        print(f'frame {num_images}: {duration} s')
+
         prevFeatures = newFeatures
         prevLabels = newLabels
         video.write(processed)
+
+    print(f'average detection/tracking time per frame: {total_duration / num_images} s')
 
     # cleanup
     cv2.destroyAllWindows()
