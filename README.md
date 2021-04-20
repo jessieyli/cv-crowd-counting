@@ -1,1 +1,0 @@
-# cv-crowd-counting

@@ -1,0 +1,6 @@
+[submodule "yolov3-tf2"]
+	path = yolov3-tf2
+	url = https://github.com/AdamWang00/yolov3-tf2
+[submodule "transfer-yolov3"]
+	path = transfer-yolov3
+	url = https://github.com/AdamWang00/yolov3-tf2
