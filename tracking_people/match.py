@@ -1,4 +1,4 @@
-import np 
+import numpy as np 
 
 
 # im1 - later frame, im2 - earlier frame

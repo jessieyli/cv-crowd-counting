@@ -6,10 +6,22 @@ from tiny_yolo import YoloV3Tiny, tiny_weights_download
 from helpers import load_pretrained_weights
 import os
 from skimage.feature import hog
+from match import match_features
+import random
+
+# constants
+CONFIDENCE_THRESHOLD = 1.05
 
 # detect people and make box
 yolo = YoloV3()
 load_pretrained_weights(yolo, 'models/yolov3.weights')
+people_count = 0
+people_colors = {}
+
+def random_color():
+    levels = range(32,256,32)
+    return tuple(random.choice(levels) for _ in range(3))
+
 
 
 def detect(frame):
@@ -49,7 +61,11 @@ def detect(frame):
     return image
 
 # returns image, hog descriptors of people
-def detectTrack(frame, prevFeatures):
+# frame - image frame
+# prevFeatures - array of descriptors
+# prevLabels - array of labels corresponding to descriptors
+def detectTrack(frame, prevFeatures, prevLabels):
+    global people_count
     image = frame.copy()
 
     img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -71,6 +87,7 @@ def detectTrack(frame, prevFeatures):
     # extract features
     wh = np.flip(image.shape[0:2])
     features = np.zeros((len(display_boxes), 3969))
+    labels = []
 
     # draw output
     for i in range(len(display_boxes)):
@@ -89,13 +106,54 @@ def detectTrack(frame, prevFeatures):
         image = cv2.rectangle(image, (fx1, fy1), (fx2, fy2), (0, 0, 255), 1)
 
         # calculate and save feature
+        if fy1 < 0 or fy2 >= image.shape[0] or fx1 < 0 or fx2 >= image.shape[1]:
+            continue
         feature = hog(image[fy1:fy2, fx1:fx2], feature_vector=True)
         features[i] = feature
 
-        # draw bounding box
-        image = cv2.rectangle(image, (x1, y1), (x2, y2), (255, 0, 0), 2)
-        image = cv2.putText(image, '{} {:.2f}'.format("person", display_scores[i]),
-                          (x1, y1), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 2)
+        # # draw bounding box
+        # image = cv2.rectangle(image, (x1, y1), (x2, y2), (255, 0, 0), 2)
+        # image = cv2.putText(image, '{} {:.2f}'.format("person", display_scores[i]),
+        #                   (x1, y1), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+
+    if prevFeatures is not None:
+        matches, confidences = match_features(features, prevFeatures)
+        print(confidences)
+        for match in matches:
+            index = match[0]
+            confidence = confidences[index]
+            x1, y1 = tuple((np.array(display_boxes[index][0:2]) * wh).astype(np.int32))
+            x2, y2 = tuple((np.array(display_boxes[index][2:4]) * wh).astype(np.int32))
+
+            
+            if confidence > CONFIDENCE_THRESHOLD:
+                # matched
+                matchedIndex = match[1]
+                labels.append(prevLabels[matchedIndex])
+                image = cv2.rectangle(image, (x1, y1), (x2, y2), people_colors[prevLabels[matchedIndex]], 2)
+                image = cv2.putText(image, '{} {:.2f}'.format("person", prevLabels[matchedIndex]),
+                                (x1, y1), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+            else:
+                # not matched
+                labels.append(people_count)
+                people_colors[people_count] = random_color()
+                image = cv2.rectangle(image, (x1, y1), (x2, y2), (255, 0, 0), 2)
+                image = cv2.putText(image, '{} {:.2f}'.format("person", people_count),
+                                (x1, y1), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+                people_count += 1
+    else:
+        for j in range(len(display_boxes)):
+            x1, y1 = tuple((np.array(display_boxes[j][0:2]) * wh).astype(np.int32))
+            x2, y2 = tuple((np.array(display_boxes[j][2:4]) * wh).astype(np.int32))
+
+            labels.append(people_count)
+            people_colors[people_count] = random_color()
+
+            # draw bounding box
+            image = cv2.rectangle(image, (x1, y1), (x2, y2), (255, 0, 0), 2)
+            image = cv2.putText(image, '{} {:.2f}'.format("person", people_count),
+                          (x1, y1), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+            people_count += 1
 
     cv2.putText(image, 'Status : Detecting ', (40, 40),
                 cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2)
@@ -103,7 +161,7 @@ def detectTrack(frame, prevFeatures):
                 cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2)
 
     # cv2.imshow('output', image)
-    return image, features
+    return image, features, labels
 
 
 
@@ -243,11 +301,13 @@ def imagesIntoVideoTrack(image_folder, video_name):
 
     # write images into video
     prevFeatures = None
+    prevLabels = None
     for image in images: 
         # process images
         raw = cv2.imread(os.path.join(image_folder, image))
-        processed, newFeatures = detectTrack(raw, prevFeatures)
-        prevFeatures
+        processed, newFeatures, newLabels = detectTrack(raw, prevFeatures, prevLabels)
+        prevFeatures = newFeatures
+        prevLabels = newLabels
         video.write(processed)
 
     # cleanup
