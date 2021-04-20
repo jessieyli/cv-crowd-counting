@@ -1,7 +1,9 @@
 import argparse
 import cv2
 import numpy as np
-from yolo3 import YoloV3, load_pretrained_weights, weights_download
+from yolo3 import YoloV3, weights_download
+from tiny_yolo import YoloV3Tiny, tiny_weights_download
+from helpers import load_pretrained_weights
 import os
 
 # detect people and make box
@@ -117,10 +119,15 @@ def useImage(path, output_path):
 
 
 def useImageYolo(path, output_path):
-    weights_download()
+    
 
-    yolo = YoloV3()
-    load_pretrained_weights(yolo, 'models/yolov3.weights')
+    # yolo = YoloV3()
+    # weights_download()
+    # load_pretrained_weights(yolo, 'models/yolov3.weights')
+
+    yolo = YoloV3Tiny()
+    tiny_weights_download()
+    load_pretrained_weights(yolo, 'models/yolov3-tiny.weights', tiny=True)
 
     print("reading image")
     image = cv2.imread(path)
