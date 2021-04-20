@@ -73,8 +73,8 @@ def detectTrack(frame):
 
     # draw output
     for i in range(len(display_boxes)):
-        x1, y1 = tuple((np.array(display_boxes[boxCount][0:2]) * wh).astype(np.int32))
-        x2, y2 = tuple((np.array(display_boxes[boxCount][2:4]) * wh).astype(np.int32))
+        x1, y1 = tuple((np.array(display_boxes[i][0:2]) * wh).astype(np.int32))
+        x2, y2 = tuple((np.array(display_boxes[i][2:4]) * wh).astype(np.int32))
 
         cx = x1 + ((x2 - x1) // 2)
         cy = y1 + ((y2 - y1) // 2)
