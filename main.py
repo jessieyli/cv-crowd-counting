@@ -45,6 +45,62 @@ def detect(frame):
     # cv2.imshow('output', image)
     return image
 
+# returns image, hog descriptors of people
+def detectTrack(frame):
+    image = frame.copy()
+
+    img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    img = cv2.resize(img, (320, 320))
+    img = img.astype(np.float32)
+    img = np.expand_dims(img, 0)
+    img = img / 255
+
+    boxes, scores, classes, nums = yolo(img)
+    count = 0
+    display_boxes = []
+    display_scores = []
+    for i in range(nums[0]):
+        if int(classes[0][i] == 0):
+            count += 1
+            display_boxes.append(boxes[0][i])
+            display_scores.append(scores[0][i])
+    
+    # extract features
+    wh = np.flip(image.shape[0:2])
+    features = np.zeros((len(display_boxes), 4))
+
+    # draw output
+    for i in range(len(display_boxes)):
+        x1, y1 = tuple((np.array(display_boxes[boxCount][0:2]) * wh).astype(np.int32))
+        x2, y2 = tuple((np.array(display_boxes[boxCount][2:4]) * wh).astype(np.int32))
+
+        cx = x1 + ((x2 - x1) // 2)
+        cy = y1 + ((y2 - y1) // 2)
+        
+        fx1 = cx - 36
+        fy1 = cy - 36
+        fx2 = cx + 36
+        fy2 = cy + 36
+
+        # draw feature
+        image = cv2.rectangle(image, (fx1, fy1), (fx2, fy2), (0, 0, 255), 1)
+        # calculate and save feature
+        
+
+        # draw bounding box
+        image = cv2.rectangle(image, (x1, y1), (x2, y2), (255, 0, 0), 2)
+        image = cv2.putText(image, '{} {:.2f}'.format("person", display_scores[i]),
+                          (x1, y1), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 2)
+
+    cv2.putText(image, 'Status : Detecting ', (40, 40),
+                cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2)
+    cv2.putText(image, f'Total Persons : {count}', (40, 70),
+                cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2)
+
+    # cv2.imshow('output', image)
+    return image
+
+
 
 def useCamera(writer):
     video = cv2.VideoCapture(0)
@@ -164,6 +220,28 @@ def useImageYolo(path, output_path):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+def imagesIntoVideoTrack(image_folder, video_name):
+    images = [img for img in os.listdir(image_folder)
+            if img.endswith(".jpg") or
+                img.endswith(".jpeg") or
+                img.endswith("png")]
+
+    # setting frame width, height
+    frame = cv2.imread(os.path.join(image_folder, images[0]))
+    height, width, layers = frame.shape
+    video = cv2.VideoWriter(video_name, 0, 30, (width, height))
+
+    # write images into video
+    for image in images: 
+        # process images
+        raw = cv2.imread(os.path.join(image_folder, image))
+        processed = detectTrack(raw)
+        video.write(processed)
+
+    # cleanup
+    cv2.destroyAllWindows()
+    video.release()
+
 def imagesIntoVideo(image_folder, video_name):
     images = [img for img in os.listdir(image_folder)
             if img.endswith(".jpg") or
@@ -200,6 +278,8 @@ if __name__ == "__main__":
     arg_parse.add_argument("-y", "--yolo", action="store_true", help="use YOLOv3")
     arg_parse.add_argument("-if", "--imagefolder", default=None,
                            help="image folder to video")
+    arg_parse.add_argument("-t", "--track", action="store_true",
+                           help="track people")
     args = vars(arg_parse.parse_args())
 
     # TODO: WRITER DOES NOT WORK FOR VIDS
@@ -222,6 +302,9 @@ if __name__ == "__main__":
     elif args['image'] is not None:
         print('USING IMAGE')
         useImage(args['image'], args['output'])
+    elif args['imagefolder'] is not None and args['track']:
+        imagesIntoVideoTrack(args['imagefolder'], args['output'])
     elif args['imagefolder'] is not None:
         imagesIntoVideo(args['imagefolder'], args['output'])
+        
 
