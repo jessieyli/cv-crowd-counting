@@ -18,7 +18,7 @@ CELLS_PER_BLOCK = 3
 HOG_BOX_WIDTH = 108
 HOG_BOX_HEIGHT = 108
 # the maximum number of frames that unmatched features/labels will be kept before disposal. set to 0 to dispose of all unmatched features/labels.
-MAX_AGE = 0
+MAX_AGE = 5
 
 # load YOLO
 yolo = YoloV3()
@@ -156,9 +156,9 @@ def detectAndTrack(frame, prevFeatures, prevLabels, prevAges):
 
         if MAX_AGE > 0:
             # Process each unmatched descriptor from the previous frame, incrementing age
-            for i in prevFeatures.shape[0]:
+            for i in range(prevFeatures.shape[0]):
                 if i not in matched_indices and prevAges[i] < MAX_AGE:
-                    features.append(prevFeatures[i])
+                    features = np.append(features, np.expand_dims(prevFeatures[i], axis=0), axis=0)
                     labels.append(prevLabels[i])
                     ages.append(prevAges[i] + 1)
 
