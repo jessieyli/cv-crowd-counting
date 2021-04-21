@@ -12,15 +12,15 @@ import time
 
 # minimum confidence for NNDR
 CONFIDENCE_THRESHOLD = 1.2
-# params of HOG boxes (height and width must be divisible by pixels_per_cell)
-PIXELS_PER_CELL_A = 6
+# params of HOG box(es) (height and width must be divisible by pixels_per_cell)
+PIXELS_PER_CELL_A = 8
 CELLS_PER_BLOCK_A = 3
 HOG_BOX_WIDTH_A = 108
 HOG_BOX_HEIGHT_A = 108
-PIXELS_PER_CELL_B = 12
-CELLS_PER_BLOCK_B = 3
-HOG_BOX_WIDTH_B = 108
-HOG_BOX_HEIGHT_B = 108
+# PIXELS_PER_CELL_B = 12
+# CELLS_PER_BLOCK_B = 3
+# HOG_BOX_WIDTH_B = 108
+# HOG_BOX_HEIGHT_B = 108
 # the maximum number of frames that unmatched features/labels will be kept before disposal. set to 0 to dispose of all unmatched features/labels.
 MAX_AGE = 3
 
@@ -117,20 +117,20 @@ def detectAndTrack(frame, prevFeatures, prevLabels, prevAges):
         fx2_A = cx + HOG_BOX_WIDTH_A // 2
         fy2_A = cy + HOG_BOX_HEIGHT_A // 2
 
-        fx1_B = cx - HOG_BOX_WIDTH_B // 2
-        fy1_B = cy - HOG_BOX_HEIGHT_B // 2
-        fx2_B = cx + HOG_BOX_WIDTH_B // 2
-        fy2_B = cy + HOG_BOX_HEIGHT_B // 2
+        # fx1_B = cx - HOG_BOX_WIDTH_B // 2
+        # fy1_B = cy - HOG_BOX_HEIGHT_B // 2
+        # fx2_B = cx + HOG_BOX_WIDTH_B // 2
+        # fy2_B = cy + HOG_BOX_HEIGHT_B // 2
 
         # if HOG box lies entirely within the image, draw HOG box and make label
-        if fy1_A >= 0 and fy2_A < image.shape[0] and fx1_A >= 0 and fx2_A < image.shape[1] and fy1_B >= 0 and fy2_B < image.shape[0] and fx1_B >= 0 and fx2_B < image.shape[1]:
+        if fy1_A >= 0 and fy2_A < image.shape[0] and fx1_A >= 0 and fx2_A < image.shape[1]: # and fy1_B >= 0 and fy2_B < image.shape[0] and fx1_B >= 0 and fx2_B < image.shape[1]
             image = cv2.rectangle(image, (fx1_A, fy1_A), (fx2_A, fy2_A), (0, 0, 255), 1)
             hog_descriptor_A = hog(image[fy1_A:fy2_A, fx1_A:fx2_A], pixels_per_cell=(PIXELS_PER_CELL_A, PIXELS_PER_CELL_A), cells_per_block=(CELLS_PER_BLOCK_A, CELLS_PER_BLOCK_A), feature_vector=True)
 
-            image = cv2.rectangle(image, (fx1_B, fy1_B), (fx2_B, fy2_B), (0, 0, 255), 1)
-            hog_descriptor_B = hog(image[fy1_B:fy2_B, fx1_B:fx2_B], pixels_per_cell=(PIXELS_PER_CELL_B, PIXELS_PER_CELL_B), cells_per_block=(CELLS_PER_BLOCK_B, CELLS_PER_BLOCK_B), feature_vector=True)
+            # image = cv2.rectangle(image, (fx1_B, fy1_B), (fx2_B, fy2_B), (0, 0, 255), 1)
+            # hog_descriptor_B = hog(image[fy1_B:fy2_B, fx1_B:fx2_B], pixels_per_cell=(PIXELS_PER_CELL_B, PIXELS_PER_CELL_B), cells_per_block=(CELLS_PER_BLOCK_B, CELLS_PER_BLOCK_B), feature_vector=True)
 
-            hog_descriptor = np.append(hog_descriptor_A, hog_descriptor_B)
+            hog_descriptor = hog_descriptor_A # np.append(hog_descriptor_A, hog_descriptor_B)
             features.append(hog_descriptor)
     features = np.array(features)
 
