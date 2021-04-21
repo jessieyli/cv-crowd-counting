@@ -10,8 +10,15 @@ from match import match_features
 import random
 import time
 
-# constants
+# minimum confidence for NNDR
 CONFIDENCE_THRESHOLD = 1.1
+# params of HOG box (height and width must be divisible by pixels_per_cell)
+PIXELS_PER_CELL = 12
+CELLS_PER_BLOCK = 3
+HOG_BOX_WIDTH = 108
+HOG_BOX_HEIGHT = 108
+# the maximum number of frames that unmatched features/labels will be kept before disposal. set to 0 to dispose of all unmatched features/labels.
+MAX_AGE = 0
 
 # load YOLO
 yolo = YoloV3()
@@ -35,7 +42,7 @@ def detect(frame):
     img = img / 255
 
     # feed img into YOLO
-    boxes, scores, classes, nums = yolo(img)
+    boxes, scores, classes, nums = yolo.predict(img)
 
     total_persons = 0
     display_boxes = []
@@ -66,7 +73,8 @@ def detect(frame):
 # frame - image frame
 # prevFeatures - array of N descriptors (1 per bounding box)
 # prevLabels - array of N labels corresponding to descriptors
-def detectAndTrack(frame, prevFeatures, prevLabels):
+# prevAges - array of N ages corresponding to descriptors
+def detectAndTrack(frame, prevFeatures, prevLabels, prevAges):
     global people_counter
     image = frame.copy()
 
@@ -77,7 +85,7 @@ def detectAndTrack(frame, prevFeatures, prevLabels):
     img = img / 255
 
     # feed img into YOLO
-    boxes, scores, classes, nums = yolo(img)
+    boxes, scores, classes, nums = yolo.predict(img)
 
     total_persons = 0
     display_boxes = []
@@ -97,26 +105,28 @@ def detectAndTrack(frame, prevFeatures, prevLabels):
         x1, y1 = tuple((np.array(display_boxes[i][0:2]) * wh).astype(np.int32))
         x2, y2 = tuple((np.array(display_boxes[i][2:4]) * wh).astype(np.int32))
 
-        cx = x1 + ((x2 - x1) // 2)
-        cy = y1 + ((y2 - y1) // 2)
-        
-        fx1 = cx - 36
-        fy1 = cy - 36
-        fx2 = cx + 36
-        fy2 = cy + 36
+        cx = (x1 + x2) // 2
+        cy = (y1 + y2) // 2
+
+        fx1 = cx - HOG_BOX_WIDTH // 2
+        fy1 = cy - HOG_BOX_HEIGHT // 2
+        fx2 = cx + HOG_BOX_WIDTH // 2
+        fy2 = cy + HOG_BOX_HEIGHT // 2
 
         # if HOG box lies entirely within the image, draw HOG box and make label
         if fy1 >= 0 and fy2 < image.shape[0] and fx1 >= 0 and fx2 < image.shape[1]:
             image = cv2.rectangle(image, (fx1, fy1), (fx2, fy2), (0, 0, 255), 1)
-            hog_descriptor = hog(image[fy1:fy2, fx1:fx2], feature_vector=True)
+            hog_descriptor = hog(image[fy1:fy2, fx1:fx2], pixels_per_cell=(PIXELS_PER_CELL, PIXELS_PER_CELL), cells_per_block=(CELLS_PER_BLOCK, CELLS_PER_BLOCK), feature_vector=True)
             features.append(hog_descriptor)
     features = np.array(features)
 
     # Match features to determine new labels
     labels = []
+    ages = []
     if prevFeatures is not None:
+        # note: matches.shape[0] equals features.shape[0] (where features is 1st arg)
         matches, confidences = match_features(features, prevFeatures)
-        print(confidences)
+        matched_indices = set() # indices of matched prevFeatures
 
         # Process each match
         for match in matches:
@@ -127,18 +137,30 @@ def detectAndTrack(frame, prevFeatures, prevLabels):
 
             if confidence > CONFIDENCE_THRESHOLD:
                 # matched with a previous feature
-                matchedIndex = match[1] # index of previous feature/label
-                label = prevLabels[matchedIndex]
+                matched_index = match[1] # index of previous feature/label
+                label = prevLabels[matched_index]
+                matched_indices.add(matched_index)
             else:
                 # not matched with a previous feature
                 label = people_counter
                 people_colors[label] = random_color()
                 people_counter += 1
 
+            # add label and age
             labels.append(label)
+            ages.append(0)
+
+            # draw and label colored bounding box
             image = cv2.rectangle(image, (x1, y1), (x2, y2), people_colors[label], 2)
-            image = cv2.putText(image, f'person {label}', (x1, y1),
-                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255), 1)
+            image = cv2.putText(image, f'{label}', (x1, y1), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 255, 0), 1)
+
+        if MAX_AGE > 0:
+            # Process each unmatched descriptor from the previous frame, incrementing age
+            for i in prevFeatures.shape[0]:
+                if i not in matched_indices and prevAges[i] < MAX_AGE:
+                    features.append(prevFeatures[i])
+                    labels.append(prevLabels[i])
+                    ages.append(prevAges[i] + 1)
 
     else: # prevFeatures is None
         for j in range(total_persons):
@@ -149,17 +171,19 @@ def detectAndTrack(frame, prevFeatures, prevLabels):
             labels.append(people_counter)
             people_colors[people_counter] = random_color()
 
+            # set age to 0
+            ages.append(0)
+
             # draw colored bounding box with label of person
             image = cv2.rectangle(image, (x1, y1), (x2, y2), people_colors[people_counter], 2)
-            image = cv2.putText(image, f'person {people_counter}', (x1, y1),
-                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255), 1)
+            image = cv2.putText(image, f'{people_counter}', (x1, y1), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 255, 0), 1)
             people_counter += 1
 
     cv2.putText(image, f'Total Persons : {total_persons}', (40, 40),
-                cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2)
+                cv2.FONT_HERSHEY_DUPLEX, 1, (0, 255, 0), 2)
 
     # cv2.imshow('output', image)
-    return image, features, labels
+    return image, features, labels, ages
 
 
 def useCamera(writer):
@@ -298,6 +322,7 @@ def imagesIntoVideoTrack(image_folder, video_name):
     # write images into video
     prevFeatures = None
     prevLabels = None
+    prevAges = None
     total_duration = 0
     num_images = 0
     for image in images: 
@@ -305,7 +330,7 @@ def imagesIntoVideoTrack(image_folder, video_name):
         raw = cv2.imread(os.path.join(image_folder, image))
 
         start = time.time()
-        processed, newFeatures, newLabels = detectAndTrack(raw, prevFeatures, prevLabels)
+        processed, newFeatures, newLabels, newAges = detectAndTrack(raw, prevFeatures, prevLabels, prevAges)
         end = time.time()
 
         duration = end - start
@@ -315,6 +340,7 @@ def imagesIntoVideoTrack(image_folder, video_name):
 
         prevFeatures = newFeatures
         prevLabels = newLabels
+        prevAges = newAges
         video.write(processed)
 
     print(f'average detection/tracking time per frame: {total_duration / num_images} s')

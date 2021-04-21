@@ -131,4 +131,5 @@ dmypy.json
 # models
 models/
 
-# imgs
+# videos
+# .avi
