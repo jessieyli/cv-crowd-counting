@@ -11,16 +11,16 @@ import random
 import time
 
 # minimum confidence for NNDR
-CONFIDENCE_THRESHOLD = 1.1
+CONFIDENCE_THRESHOLD = 1.2
 # params of HOG boxes (height and width must be divisible by pixels_per_cell)
 PIXELS_PER_CELL_A = 6
 CELLS_PER_BLOCK_A = 3
-HOG_BOX_WIDTH_A = 72
-HOG_BOX_HEIGHT_A = 72
+HOG_BOX_WIDTH_A = 108
+HOG_BOX_HEIGHT_A = 108
 PIXELS_PER_CELL_B = 12
 CELLS_PER_BLOCK_B = 3
-HOG_BOX_WIDTH_B = 144
-HOG_BOX_HEIGHT_B = 144
+HOG_BOX_WIDTH_B = 108
+HOG_BOX_HEIGHT_B = 108
 # the maximum number of frames that unmatched features/labels will be kept before disposal. set to 0 to dispose of all unmatched features/labels.
 MAX_AGE = 3
 
